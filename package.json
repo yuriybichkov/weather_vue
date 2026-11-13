@@ -15,17 +15,20 @@
     "format": "prettier --write --experimental-cli src/"
   },
   "dependencies": {
+    "axios": "^1.7.9",
     "pinia": "^4.0.3",
     "vue": "^3.5.42",
-    "vue-router": "^5.3.1",
-    "axios": "^1.7.9",
-    "vue-i18n": "^10.0.5"
+    "vue-i18n": "^10.0.5",
+    "vue-router": "^5.3.1"
   },
   "devDependencies": {
     "@tsconfig/node24": "^24.0.5",
     "@types/node": "^24.13.4",
     "@vitejs/plugin-vue": "^6.0.8",
+    "@vitest/eslint-plugin": "^1.6.28",
+    "@vue/eslint-config-prettier": "^10.2.0",
     "@vue/eslint-config-typescript": "^14.9.0",
+    "eslint-plugin-cypress": "^7.0.4",
     "@vue/tsconfig": "^0.9.1",
     "eslint": "^10.10.0",
     "eslint-config-prettier": "^10.1.8",
