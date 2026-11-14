@@ -1,49 +1,53 @@
 <template>
-  <div class="city-search">
+  <div ref="root" class="city-search">
     <input
       v-model="query"
       type="text"
-      placeholder="Введіть назву міста..."
+      :placeholder="t('search.placeholder')"
+      :aria-label="t('search.placeholder')"
       autocomplete="off"
-      @focus="showResults = true" />
+      @focus="showResults = true"
+      @keydown.esc="showResults = false" />
 
-    <div v-if="isLoading" class="search-status">Пошук...</div>
+    <AppSpinner v-if="isLoading" size="sm" :label="t('search.searching')" class="search-status" />
 
     <ul v-else-if="showResults && places.length" class="autocomplete-list">
-      <li
-        v-for="place in places"
-        :key="`${place.lat}-${place.lon}`"
-        @click="selectPlace(place)">
-        <span class="place-name">{{ place.name }}</span>
-        <span class="place-details">
-          {{ place.state ? `${place.state}, ` : '' }}{{ place.country }}
-        </span>
+      <li v-for="place in places" :key="`${place.lat}-${place.lon}`">
+        <button type="button" @click="selectPlace(place)">
+          <span class="place-name">{{ placeName(place, locale) }}</span>
+          <span class="place-details">
+            {{ place.state ? `${place.state}, ` : '' }}{{ place.country }}
+          </span>
+        </button>
       </li>
     </ul>
 
-    <p v-else-if="showResults && query.trim().length >= 2 && !isLoading" class="search-status">
-      Місто не знайдено
+    <p v-else-if="showResults && query.trim().length >= 2 && !error" class="search-status">
+      {{ t('search.notFound') }}
     </p>
 
-    <p v-if="error" class="search-error">
-      {{ error }}
-    </p>
+    <p v-if="error" class="search-error">{{ error }}</p>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onUnmounted } from 'vue';
+import { ref, watch, onMounted, onUnmounted } from 'vue';
+import { useI18n } from 'vue-i18n';
 import weatherClient from '@/api/weatherClient';
+import AppSpinner from '@/components/AppSpinner.vue';
+import { placeName } from '@/utils/weather';
 import type { Place } from '@/types/weather';
 
 const emit = defineEmits<{ select: [place: Place] }>();
+const { t, locale } = useI18n();
 
+const root = ref<HTMLElement | null>(null);
 const query = ref('');
 const places = ref<Place[]>([]);
 const isLoading = ref(false);
 const error = ref<string | null>(null);
 const showResults = ref(false);
-
+/** True after a city was picked, so clearing the query does not reopen the list. */
 let debounceTimer: ReturnType<typeof setTimeout> | undefined;
 
 watch(query, value => {
@@ -59,9 +63,7 @@ watch(query, value => {
     return;
   }
 
-  debounceTimer = setTimeout(() => {
-    searchPlaces(searchQuery);
-  }, 400);
+  debounceTimer = setTimeout(() => searchPlaces(searchQuery), 400);
 });
 
 const searchPlaces = async (searchQuery: string) => {
@@ -71,30 +73,35 @@ const searchPlaces = async (searchQuery: string) => {
   try {
     const response = await weatherClient.searchPlace(searchQuery);
 
-    // Защита от отображения устаревших результатов
+    // Ignore stale answers: the user has typed something else meanwhile.
     if (query.value.trim() !== searchQuery) return;
 
     places.value = response.data;
     showResults.value = true;
   } catch {
-    error.value = 'Помилка пошуку міста';
+    if (query.value.trim() === searchQuery) error.value = t('search.error');
   } finally {
-    if (query.value.trim() === searchQuery) {
-      isLoading.value = false;
-    }
+    if (query.value.trim() === searchQuery) isLoading.value = false;
   }
 };
 
 const selectPlace = (place: Place) => {
   emit('select', place);
 
+  clearTimeout(debounceTimer);
   query.value = '';
   places.value = [];
   showResults.value = false;
 };
 
+const onOutsideClick = (event: MouseEvent) => {
+  if (root.value && !root.value.contains(event.target as Node)) showResults.value = false;
+};
+
+onMounted(() => document.addEventListener('mousedown', onOutsideClick));
 onUnmounted(() => {
   clearTimeout(debounceTimer);
+  document.removeEventListener('mousedown', onOutsideClick);
 });
 </script>
 
@@ -102,13 +109,15 @@ onUnmounted(() => {
 .city-search {
   position: relative;
   width: 100%;
-  max-width: 400px;
 }
 
 .city-search input {
   width: 100%;
-  padding: 12px;
-  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
 }
 
 .autocomplete-list {
@@ -120,22 +129,28 @@ onUnmounted(() => {
   margin: 4px 0 0;
   padding: 0;
   list-style: none;
-  background: white;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  box-shadow: 0 4px 12px rgb(0 0 0 / 10%);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
 }
 
-.autocomplete-list li {
+.autocomplete-list button {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
+  width: 100%;
   padding: 10px 12px;
-  cursor: pointer;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
 }
 
-.autocomplete-list li:hover {
-  background: #f2f2f2;
+.autocomplete-list button:hover,
+.autocomplete-list button:focus-visible {
+  background: var(--surface-alt);
 }
 
 .place-name {
@@ -144,16 +159,17 @@ onUnmounted(() => {
 
 .place-details,
 .search-status {
-  color: #777;
+  color: var(--muted);
   font-size: 13px;
 }
 
 .search-status,
 .search-error {
-  padding: 8px 0;
+  padding: 8px 0 0;
 }
 
 .search-error {
-  color: #d33;
+  color: var(--danger);
+  font-size: 13px;
 }
 </style>

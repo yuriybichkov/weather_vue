@@ -1,48 +1,47 @@
-# WeatherForecast
+# Weather
 
-This template should help get you started developing with Vue 3 in Vite.
+Weather app on **Vue 3 + TypeScript + Pinia + axios**, data from [OpenWeather](https://openweathermap.org/).
+No CSS frameworks and no UI libraries. The chart is plain `chart.js` (no vue-chartjs).
 
-## Recommended IDE Setup
-
-[VS Code](https://code.visualstudio.com/) + [Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
-
-## Recommended Browser Setup
-
-- Chromium-based browsers (Chrome, Edge, Brave, etc.):
-  - [Vue.js devtools](https://chromewebstore.google.com/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd)
-  - [Turn on Custom Object Formatter in Chrome DevTools](http://bit.ly/object-formatters)
-- Firefox:
-  - [Vue.js devtools](https://addons.mozilla.org/en-US/firefox/addon/vue-js-devtools/)
-  - [Turn on Custom Object Formatter in Firefox DevTools](https://fxdx.dev/firefox-devtools-custom-object-formatters/)
-
-## Type Support for `.vue` Imports in TS
-
-TypeScript cannot handle type information for `.vue` imports by default, so we replace the `tsc` CLI with `vue-tsc` for type checking. In editors, we need [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar) to make the TypeScript language service aware of `.vue` types.
-
-## Customize configuration
-
-See [Vite Configuration Reference](https://vite.dev/config/).
-
-## Project Setup
+## Run
 
 ```sh
 npm install
+npm run dev        # development
+npm run build      # type-check + production build (dist/)
 ```
 
-### Compile and Hot-Reload for Development
+`.env`:
 
-```sh
-npm run dev
+```
+VITE_OPENWEATHER_API_KEY=<your key>
+VITE_API=https://api.openweathermap.org
 ```
 
-### Type-Check, Compile and Minify for Production
+## Requirements checklist
 
-```sh
-npm run build
-```
+| # | Requirement | Where |
+|---|-------------|-------|
+| 1 | City input with autocomplete (debounced, ignores stale answers, Esc / outside click closes) | `SearchPlace.vue` |
+| 2 | Requests via axios | `api/weatherClient.ts`, `plugins/axios.ts` |
+| 3 | Weather card for the current day | `WeatherCard.vue` |
+| 4 | Hourly temperature chart (chart.js, no Vue wrapper) | `TemperatureChart.vue` |
+| 5 | Several blocks, `+` button, max 5, each with its own search | `WeatherComponent.vue`, store |
+| 6 | Block removal with a confirmation modal (the last block cannot be removed) | `ConfirmModal.vue` |
+| 7 | "Favorites" tab, star + orange frame on favorite cities, `localStorage`, max 5, modal "to add X remove a city because the maximum is 5" (click a city to replace it); in the tab the city cannot be changed, only the day / 5 days switch | `FavoritesView.vue`, `FavoritesLimitModal.vue` |
+| 8 | Responsive: container 1200px max, 360px min | `assets/main.css` |
+| 9 | Day / 5 days switch: card and chart per day, using the mean of the 3-hourly values (forecast5 API) | `utils/weather.ts` |
+| 10 | Default city detected by IP (ipapi.co, fallback ipwho.is) | `composables/useUserLocation.ts` |
+| 11 | Preloaders: city detection, search, card loading, refresh overlay | `AppSpinner.vue` |
+| 12 | en / uk interface **and** API answers (`lang` param is added to every request); choice is remembered | `i18n/index.ts` |
+| 13 | Day / Night switch (uses the API `pod` flag; a night is kept together across midnight) | `utils/weather.ts` |
 
-### Lint with [ESLint](https://eslint.org/)
+## Extra functionality (14)
 
-```sh
-npm run lint
-```
+- Night mode changes the card theme (dark card and chart).
+- The period (day/night) starts from the city's real current time.
+- Click a favorite in the limit modal to replace it with the new city.
+- Localised city names via reverse geocoding for the IP-detected city.
+- Late in the day the hourly chart continues into the next day so it stays readable.
+- Error state with a "Try again" button; weather is cached and shared between blocks and the Favorites tab.
+- Accessible markup: dialog roles, `aria-pressed` toggles, focus return after a modal, keyboard friendly.

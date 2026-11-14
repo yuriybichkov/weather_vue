@@ -1,89 +1,89 @@
 <template>
   <section class="weather">
-    <div class="weather-toolbar">
-      <h2>Погода</h2>
-
-      <button
-        type="button"
-        :disabled="!weatherStore.canAddWeatherBlock"
-        @click="isSearchOpen = !isSearchOpen">
-        + Додати місто
-      </button>
-    </div>
-
-    <SearchPlace v-if="isSearchOpen" @select="handleSelectPlace" />
-
-    <p v-if="addError" class="error">
-      {{ addError }}
-    </p>
-
     <div class="weather-list">
       <WeatherCard
-        v-for="block in weatherStore.weatherBlocks"
-        :key="`${block.place.lat}-${block.place.lon}`"
-        :block="block" />
+        v-for="block in store.blocks"
+        :key="block.id"
+        :place="block.place"
+        removable
+        @select="store.setBlockPlace(block.id, $event)"
+        @remove="blockToRemove = block" />
     </div>
+
+    <div class="weather-add">
+      <button
+        type="button"
+        class="btn add-btn"
+        :disabled="!store.canAddBlock"
+        :title="store.canAddBlock ? t('addBlock') : t('maxBlocks', { max: MAX_WEATHER_BLOCKS })"
+        :aria-label="t('addBlock')"
+        @click="store.addBlock()">
+        <span aria-hidden="true">+</span>
+      </button>
+      <span class="weather-add__hint">{{ store.blocks.length }} / {{ MAX_WEATHER_BLOCKS }}</span>
+    </div>
+
+    <ConfirmModal
+      v-if="blockToRemove"
+      :title="t('remove.title')"
+      :text="
+        blockToRemove.place
+          ? t('remove.text', { city: placeName(blockToRemove.place, locale) })
+          : t('remove.textEmpty')
+      "
+      :confirm-text="t('remove.confirm')"
+      :cancel-text="t('remove.cancel')"
+      @confirm="confirmRemove"
+      @cancel="blockToRemove = null" />
   </section>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue';
-import { useWeatherStore } from '@/stores/weather';
-import type { Place } from '@/types/weather';
-
-import SearchPlace from '@/components/SearchPlace.vue';
+import { useI18n } from 'vue-i18n';
+import ConfirmModal from '@/components/ConfirmModal.vue';
 import WeatherCard from '@/components/WeatherCard.vue';
+import { MAX_WEATHER_BLOCKS, useWeatherStore } from '@/stores/weather';
+import { placeName } from '@/utils/weather';
+import type { BlockConfig } from '@/types/weather';
 
-const weatherStore = useWeatherStore();
+const store = useWeatherStore();
+const { t, locale } = useI18n();
 
-const isSearchOpen = ref(false);
-const addError = ref<string | null>(null);
+const blockToRemove = ref<BlockConfig | null>(null);
 
-const handleSelectPlace = async (place: Place) => {
-  addError.value = null;
-
-  const added = await weatherStore.addWeatherBlock(place);
-
-  if (added) {
-    isSearchOpen.value = false;
-  } else if (!weatherStore.canAddWeatherBlock) {
-    addError.value = 'Досягнуто максимум 5 погодних блоків';
-  } else {
-    addError.value = 'Це місто вже додано';
-  }
+const confirmRemove = () => {
+  if (blockToRemove.value) store.removeBlock(blockToRemove.value.id);
+  blockToRemove.value = null;
 };
 </script>
 
 <style scoped>
-.weather-toolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 20px;
-}
-
-.weather-toolbar button {
-  padding: 10px 16px;
-  border: none;
-  border-radius: 8px;
-  background: #2563eb;
-  color: white;
-  cursor: pointer;
-}
-
-.weather-toolbar button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
 .weather-list {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 520px), 1fr));
+  align-items: start;
   gap: 20px;
 }
 
-.error {
-  color: #d92d20;
+.weather-add {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.add-btn {
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 28px;
+  line-height: 1;
+}
+
+.weather-add__hint {
+  color: var(--muted);
+  font-size: 14px;
 }
 </style>

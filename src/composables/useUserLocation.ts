@@ -7,12 +7,23 @@ export interface UserLocation {
   longitude: number;
 }
 
-interface IpApiResponse {
-  city: string;
-  country_name: string;
-  latitude: number;
-  longitude: number;
-}
+/** Free IP geolocation services, tried in order until one answers. */
+const providers: Array<() => Promise<UserLocation>> = [
+  async () => {
+    const res = await fetch('https://ipapi.co/json/');
+    if (!res.ok) throw new Error('ipapi.co failed');
+    const d = await res.json();
+    if (!d.latitude || !d.longitude || !d.city) throw new Error('ipapi.co: no data');
+    return { city: d.city, country: d.country_name, latitude: d.latitude, longitude: d.longitude };
+  },
+  async () => {
+    const res = await fetch('https://ipwho.is/');
+    if (!res.ok) throw new Error('ipwho.is failed');
+    const d = await res.json();
+    if (!d.success || !d.latitude || !d.longitude) throw new Error('ipwho.is: no data');
+    return { city: d.city, country: d.country, latitude: d.latitude, longitude: d.longitude };
+  },
+];
 
 export function useUserLocation() {
   const location = ref<UserLocation | null>(null);
@@ -23,34 +34,18 @@ export function useUserLocation() {
     isLoading.value = true;
     error.value = null;
 
-    try {
-      const response = await fetch('https://ipapi.co/json/');
-
-      if (!response.ok) {
-        throw new Error('Не вдалося визначити місцезнаходження');
+    for (const provider of providers) {
+      try {
+        location.value = await provider();
+        isLoading.value = false;
+        return location.value;
+      } catch (err) {
+        error.value = err instanceof Error ? err.message : 'Location detection failed';
       }
-
-      const data: IpApiResponse = await response.json();
-
-      if (!data.latitude || !data.longitude) {
-        throw new Error('Не отримано координати користувача');
-      }
-
-      location.value = {
-        city: data.city,
-        country: data.country_name,
-        latitude: data.latitude,
-        longitude: data.longitude,
-      };
-
-      return location.value;
-    } catch (err) {
-      error.value = err instanceof Error ? err.message : 'Помилка визначення місцезнаходження';
-
-      return null;
-    } finally {
-      isLoading.value = false;
     }
+
+    isLoading.value = false;
+    return null;
   }
 
   return { location, isLoading, error, detectLocation };
